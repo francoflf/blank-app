@@ -119,7 +119,7 @@ def token_exchange():
 
 if __name__ == "__main__":
     print("Aplicación Flask iniciada en https://blank-app-xyew7evq8qsy8mbhswdtvq.streamlit.app/")
-    app.run(debug=True, port=5001)
+    app.run(debug=True)
 
 
 

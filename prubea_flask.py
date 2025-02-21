@@ -106,58 +106,22 @@ def revoke_token(token, token_hint_type=None):
 @app.route("/")
 def index():
     auth_url, code_verifier, state = get_authorization_url()
-    session["code_verifier"] = code_verifier # Guarda code_verifier en la sesión
-    session["state"] = state # Guarda state en la sesión
-    print("state: ",session["state"])
-    return f'<a href="{auth_url}">Autorizar con Kick</a>'
+    session["code_verifier"] = code_verifier
+    session["state"] = state
+    return f'<a href="{auth_url}">Autorizar con Kick</a>'  # Devuelve solo el HTML
 
-@app.route("/callback")
-def callback():
-    code = request.args.get("code")
-    state = request.args.get("state")
-    print("request.args.get('code'): ", request.args.get("code"))
-    print("session.get('state'): ", session.get("state"))
-    print("request.args.get('state'): ", request.args.get("state"))
-    print(session)
-    print("Contenido de la sesión:")
-    for clave, valor in session.items():
-        print(f"{clave}: {valor}")
-    if state != session.get("state"):  # ¡Verificación del estado!
-        return "Error: Estado no válido", 400
-
-    if code:
-        token_data = get_access_token(code, session.get("code_verifier"))
-        if token_data:
-            session["access_token"] = token_data["access_token"]
-            session["refresh_token"] = token_data["refresh_token"]
-            return redirect(url_for("success")) # Redirige a una página de éxito
-        else:
-            return "Error al obtener el token"
-    else:
-        return "Error: No se recibió el código de autorización"
-
-
-@app.route("/success") # Página de éxito
-def success():
-    access_token = session.get("access_token")
-    if access_token:
-        response = requests.get(
-            "https://api.kick.com/public/v1/categories?q=ga%",
-            headers={"Authorization": f"Bearer {access_token}"}, # Usa Bearer token
-        )
-        data = response.json()
-        print("Datos de la API:\n", data)
-        return f"Datos de la API: {data}"  # Muestra los datos
-    
-    else:
-        return "No hay token de acceso"
-
+@app.route("/token_exchange", methods=["POST"])
+def token_exchange():
+    code = request.form.get("code")
+    code_verifier = session.get("code_verifier")
+    token_data = get_access_token(code, code_verifier)
+    return jsonify(token_data)  # Devuelve la respuesta como JSON
 
 if __name__ == "__main__":
-    try:
-        print("Aplicación Flask iniciada en https://blank-app-xyew7evq8qsy8mbhswdtvq.streamlit.app/")
-        app.run(debug=True, port=5001)
-    except Exception as e:
-        print(f"Error al iniciar Flask: {e}")
-        import traceback
-        traceback.print_exc()
+    print("Aplicación Flask iniciada en https://blank-app-xyew7evq8qsy8mbhswdtvq.streamlit.app/")
+    app.run(debug=True, port=5001)
+
+
+
+
+        

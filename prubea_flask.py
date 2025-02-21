@@ -2,7 +2,7 @@ import requests
 import secrets
 import hashlib
 import base64
-from urllib.parse import urlencode, quote
+from urllib.parse import urlencode
 from flask import Flask, request, redirect, url_for, session
 
 # Datos de tu aplicación
@@ -15,8 +15,6 @@ SCOPES = "user:read channel:read"
 
 app = Flask(__name__)
 app.secret_key = secrets.token_urlsafe(32)  # ¡Secreto para la sesión!
-
-
 
 
 def generate_code_verifier():
@@ -154,11 +152,12 @@ def success():
     else:
         return "No hay token de acceso"
 
+
 if __name__ == "__main__":
     try:
-        print("La aplicación Flask se ha iniciado correctamente.")  # Mensaje en la consola
+        print("Aplicación Flask iniciada en https://blank-app-xyew7evq8qsy8mbhswdtvq.streamlit.app/")
         app.run(debug=True, port=5001)
     except Exception as e:
-        print(f"Error al iniciar la aplicación: {e}")
+        print(f"Error al iniciar Flask: {e}")
         import traceback
         traceback.print_exc()

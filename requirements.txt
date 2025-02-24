@@ -1,2 +1,4 @@
 streamlit
 Flask
+redis
+flask_session

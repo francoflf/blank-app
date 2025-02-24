@@ -7,32 +7,42 @@ from flask import Flask, request, redirect, url_for, session, jsonify
 from flask_session import Session 
 import json
 import redis
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
 
 # Datos de tu aplicación
 CLIENT_ID = "01JMMS7DVKKB10JM3KHCMCQ355"
 CLIENT_SECRET = "29ccdadaac0c46088f55f75edc11d7c559db8f0c5a8c1f2e79793f7e9f8d1848"
 # REDIRECT_URI = "https://blank-app-7n69k0rfqzl.streamlit.app"
-REDIRECT_URI = "https://localhost:443/callback"
+REDIRECT_URI = "http://localhost:5000/callback"
+
 print(f"REDIRECT_URI en Flask: {REDIRECT_URI}")
 
 SCOPES = "user:read channel:read"
 
 app = Flask(__name__)  # ¡Instancia de la aplicación creada *fuera* del if
+app.secret_key = "tu_clave_secreta"
+print('app.secret_key: ',app.secret_key)
 
 # 🔹 1️⃣ Agregar SECRET_KEY para firmar sesiones
 app.config['SECRET_KEY'] = secrets.token_urlsafe(32)  
+print('app.config["SECRET_KEY"]: ',app.config['SECRET_KEY'])
+print('app.secret_key: ',app.secret_key)
 
 # 🔹 2️⃣ Configuración de sesión y cookies
-app.config['SESSION_TYPE'] = 'redis'  # Usa archivos para almacenamiento de sesión
+#app.config['SESSION_TYPE'] = 'redis'  # Usa archivos para almacenamiento de sesión
+app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_PERMANENT'] = False  
 app.config['SESSION_USE_SIGNER'] = True  # Protege contra manipulación de sesiones
 app.config['SESSION_COOKIE_NAME'] = 'session'  
 app.config['SESSION_COOKIE_HTTPONLY'] = True    
-app.config['SESSION_COOKIE_SECURE'] = True  # Cambiar a True en producción (HTTPS)
-app.config['SESSION_COOKIE_SAMESITE'] = 'None'  # Permite redirección OAuth sin perder sesión
+app.config['SESSION_COOKIE_SECURE'] = False  # Cambiar a True en producción (HTTPS)
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # Permite redirección OAuth sin perder sesión
 
 # ⚠️ Necesitas instalar Redis localmente o usar un servicio de Redis en producción
-app.config['SESSION_REDIS'] = redis.StrictRedis(host='localhost', port=6379, db=0, decode_responses=True)
+# app.config['SESSION_REDIS'] = redis.StrictRedis(host='localhost', port=6379, db=0, decode_responses=False)
+
 
 Session(app)  # 🔹 Inicializar Flask-Session
 
@@ -122,12 +132,17 @@ def revoke_token(token, token_hint_type=None):
 
 #########################################################
 
+@app.before_request
+def log_session():
+    print("📝 Session data:", dict(session))
+
 @app.route("/")
 def index():
     code_verifier = generate_code_verifier()
     code_challenge = generate_code_challenge(code_verifier)
     state = secrets.token_urlsafe(16)
-    
+    print(f"code_verifier guardado en sesión: {code_verifier}")  # Depuración adicional
+    print(f"code_challenge guardado en sesión: {code_challenge}")  # Depuración adicional
 
     session["code_verifier"] = code_verifier
     session["state"] = state  # Guarda el state en la sesión
@@ -155,14 +170,19 @@ def index():
 
 @app.route("/callback")  # Nueva ruta para el callback de Kick
 def callback():
-    print(f"URL de Callback (navegador): {request.url}") # Imprime la URL completa del callback
-    print(f"Session state (al entrar en callback): {session.get('state')}")
-    print(f"Session state en callback (antes de verificar): {session.get('state')}")
+    print(f"URL de Callback (navegador): {request.url}")
+    print(f"Session state (antes de verificar): {session.get('state')}")
+    
+    # Ver todos los parámetros recibidos en el callback
+    print("Todos los parámetros recibidos en callback:", request.args.to_dict())
+
     code = request.args.get("code")
     state = request.args.get("state")
+
     print(f"Code recibido: {code}")
     print(f"State recibido: {state}")
     print(f"Session state: {session.get('state')}")
+    print(f"Session code_verifier: {session.get('code_verifier')}")
 
     if state != session.get("state"):
         return "Error: Estado no coincide", 400
@@ -172,8 +192,9 @@ def callback():
 
     if token_data:
         session["access_token"] = token_data["access_token"]
-        session["refresh_token"] = token_data.get("refresh_token") # Guarda el refresh token
-        return redirect(url_for("get_categories")) # Redirige a la función para obtener categorías
+        session["refresh_token"] = token_data.get("refresh_token")
+        session.modified = True  # 🔹 Asegurar que Flask guarde los tokens en la sesión
+        return redirect(url_for("get_categories"))
     else:
         return "Error al obtener el token", 400
 
@@ -202,6 +223,17 @@ def get_categories():
     except Exception as e: # Captura cualquier otro error
       return f"Error inesperado: {e}", 500
 
+@app.route("/test_session")
+def test_session():
+    session["test_key"] = "valor de prueba"
+    return "Sesión guardada, intenta acceder a /check_session"
+
+@app.route("/check_session")
+def check_session():
+    return f"Valor en sesión: {session.get('test_key', 'No encontrado')}"
+
+
 if __name__ == "__main__":
-    app.run(debug=True, port=443, ssl_context=('.certs/cert.pem', '.certs/key.pem'))
+    # app.run(debug=True, port=5000, ssl_context=('.certs/cert.pem', '.certs/key.pem'))
+    app.run(debug=True, port=5000)
 
